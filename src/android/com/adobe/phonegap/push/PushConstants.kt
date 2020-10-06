@@ -108,6 +108,7 @@ object PushConstants {
   const val ONGOING: String = "ongoing"
   const val LIST_CHANNELS: String = "listChannels"
   const val CLEAR_NOTIFICATION: String = "clearNotification"
+  const val GET_NOTIFICATIONS: String = "getNotifications"
   const val MESSAGE_ID: String = "google.message_id"
   const val IS_ENABLED: String = "isEnabled"
 }

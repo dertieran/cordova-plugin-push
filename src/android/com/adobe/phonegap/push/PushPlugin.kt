@@ -61,6 +61,91 @@ class PushPlugin : CordovaPlugin() {
     }
 
     /**
+     * Serializes a bundle to JSON.
+     *
+     * @param extras
+     *
+     * @return JSONObject|null
+     */
+    fun convertBundleToJson(extras: Bundle): JSONObject? {
+      Log.d(TAG, "Convert Extras to JSON")
+
+      try {
+        val json = JSONObject()
+        val additionalData = JSONObject()
+
+        // Add any keys that need to be in top level json to this set
+        val jsonKeySet: HashSet<String?> = HashSet<String?>()
+
+        Collections.addAll(
+          jsonKeySet,
+          PushConstants.TITLE,
+          PushConstants.MESSAGE,
+          PushConstants.COUNT,
+          PushConstants.SOUND,
+          PushConstants.IMAGE
+        )
+
+        val it: Iterator<String> = extras.keySet().iterator()
+
+        while (it.hasNext()) {
+          val key = it.next()
+          val value = extras[key]
+
+          Log.d(TAG, "Extras Iteration: key=$key")
+
+          when {
+            jsonKeySet.contains(key) -> {
+              json.put(key, value)
+            }
+
+            key == PushConstants.COLDSTART -> {
+              additionalData.put(key, extras.getBoolean(PushConstants.COLDSTART))
+            }
+
+            key == PushConstants.FOREGROUND -> {
+              additionalData.put(key, extras.getBoolean(PushConstants.FOREGROUND))
+            }
+
+            key == PushConstants.DISMISSED -> {
+              additionalData.put(key, extras.getBoolean(PushConstants.DISMISSED))
+            }
+
+            value is String -> {
+              try {
+                // Try to figure out if the value is another JSON object
+                when {
+                  value.startsWith("{") -> {
+                    additionalData.put(key, JSONObject(value))
+                  }
+
+                  value.startsWith("[") -> {
+                    additionalData.put(key, JSONArray(value))
+                  }
+
+                  else -> {
+                    additionalData.put(key, value)
+                  }
+                }
+              } catch (e: Exception) {
+                additionalData.put(key, value)
+              }
+            }
+          }
+        }
+
+        json.put(PushConstants.ADDITIONAL_DATA, additionalData)
+
+        Log.v(TAG, "Extras To JSON Result: $json")
+        return json
+      } catch (e: JSONException) {
+        Log.e(TAG, "convertBundleToJson had a JSON Exception")
+      }
+
+      return null
+    }
+
+    /**
      * Sends the push bundle extras to the client application. If the client
      * application isn't currently active and the no-cache flag is not set, it is
      * cached for later processing.
@@ -69,91 +154,6 @@ class PushPlugin : CordovaPlugin() {
      */
     @JvmStatic
     fun sendExtras(extras: Bundle?) {
-      /**
-       * Serializes a bundle to JSON.
-       *
-       * @param extras
-       *
-       * @return JSONObject|null
-       */
-      fun convertBundleToJson(extras: Bundle): JSONObject? {
-        Log.d(TAG, "Convert Extras to JSON")
-
-        try {
-          val json = JSONObject()
-          val additionalData = JSONObject()
-
-          // Add any keys that need to be in top level json to this set
-          val jsonKeySet: HashSet<String?> = HashSet<String?>()
-
-          Collections.addAll(
-            jsonKeySet,
-            PushConstants.TITLE,
-            PushConstants.MESSAGE,
-            PushConstants.COUNT,
-            PushConstants.SOUND,
-            PushConstants.IMAGE
-          )
-
-          val it: Iterator<String> = extras.keySet().iterator()
-
-          while (it.hasNext()) {
-            val key = it.next()
-            val value = extras[key]
-
-            Log.d(TAG, "Extras Iteration: key=$key")
-
-            when {
-              jsonKeySet.contains(key) -> {
-                json.put(key, value)
-              }
-
-              key == PushConstants.COLDSTART -> {
-                additionalData.put(key, extras.getBoolean(PushConstants.COLDSTART))
-              }
-
-              key == PushConstants.FOREGROUND -> {
-                additionalData.put(key, extras.getBoolean(PushConstants.FOREGROUND))
-              }
-
-              key == PushConstants.DISMISSED -> {
-                additionalData.put(key, extras.getBoolean(PushConstants.DISMISSED))
-              }
-
-              value is String -> {
-                try {
-                  // Try to figure out if the value is another JSON object
-                  when {
-                    value.startsWith("{") -> {
-                      additionalData.put(key, JSONObject(value))
-                    }
-
-                    value.startsWith("[") -> {
-                      additionalData.put(key, JSONArray(value))
-                    }
-
-                    else -> {
-                      additionalData.put(key, value)
-                    }
-                  }
-                } catch (e: Exception) {
-                  additionalData.put(key, value)
-                }
-              }
-            }
-          }
-
-          json.put(PushConstants.ADDITIONAL_DATA, additionalData)
-
-          Log.v(TAG, "Extras To JSON Result: $json")
-          return json
-        } catch (e: JSONException) {
-          Log.e(TAG, "convertBundleToJson had a JSON Exception")
-        }
-
-        return null
-      }
-
       extras?.let {
         val noCache = it.getString(PushConstants.NO_CACHE)
 
@@ -424,6 +424,7 @@ class PushPlugin : CordovaPlugin() {
       PushConstants.DELETE_CHANNEL -> executeActionDeleteChannel(data, callbackContext)
       PushConstants.LIST_CHANNELS -> executeActionListChannels(callbackContext)
       PushConstants.CLEAR_NOTIFICATION -> executeActionClearNotification(data, callbackContext)
+      PushConstants.GET_NOTIFICATIONS -> executeActionGetNotifications(data, callbackContext)
       else -> {
         Log.e(TAG, "Execute: Invalid Action $action")
         callbackContext.sendPluginResult(PluginResult(PluginResult.Status.INVALID_ACTION))
@@ -814,6 +815,17 @@ class PushPlugin : CordovaPlugin() {
     }
   }
 
+  private fun executeActionGetNotifications(data: JSONArray, callbackContext: CallbackContext) {
+    cordova.threadPool.execute {
+      try {
+        Log.v(TAG, "Execute::GetNotifications")
+        callbackContext.success(getNotifications())
+      } catch (e: JSONException) {
+        callbackContext.error(e.message)
+      }
+    }
+  }
+
   /**
    * Initialize
    */
@@ -864,6 +876,23 @@ class PushPlugin : CordovaPlugin() {
 
   private fun clearNotification(id: Int) {
     notificationManager.cancel(appName, id)
+  }
+
+  @Throws(JSONException::class)
+  private fun getNotifications(): JSONArray {
+    val notifications = JSONArray()
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
+      return notifications
+    }
+
+    for (notification in notificationManager.activeNotifications) {
+      val bundle = notification.notification.extras.getBundle(PushConstants.PUSH_BUNDLE)
+      if (bundle != null) {
+        val json = convertBundleToJson(bundle)
+        if (json != null) notifications.put(json)
+      }
+    }
+    return notifications
   }
 
   private fun subscribeToTopics(topics: JSONArray?) {

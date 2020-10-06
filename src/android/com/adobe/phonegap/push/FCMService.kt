@@ -504,6 +504,10 @@ class FCMService : FirebaseMessagingService() {
       .setDeleteIntent(deleteIntent)
       .setAutoCancel(true)
 
+    val notificationExtras = Bundle();
+    notificationExtras.putBundle(PushConstants.PUSH_BUNDLE, extras);
+    mBuilder.addExtras(notificationExtras);
+
     val localIcon = pushSharedPref.getString(PushConstants.ICON, null)
     val localIconColor = pushSharedPref.getString(PushConstants.ICON_COLOR, null)
     val soundOption = pushSharedPref.getBoolean(PushConstants.SOUND, true)

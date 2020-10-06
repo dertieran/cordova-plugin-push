@@ -216,6 +216,21 @@ var PushNotification = /*#__PURE__*/function () {
       }
       exec(successCallback, errorCallback, 'PushNotification', 'clearNotification', [idNumber]);
     }
+  }, {
+    key: "getNotifications",
+    value: function getNotifications() {
+      var successCallback = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : function () {};
+      var errorCallback = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : function () {};
+      if (typeof errorCallback !== 'function') {
+        console.log('PushNotification.getNotifications failure: failure parameter not a function');
+        return;
+      }
+      if (typeof successCallback !== 'function') {
+        console.log('PushNotification.getNotifications failure: success callback ' + 'parameter must be a function');
+        return;
+      }
+      exec(successCallback, errorCallback, 'PushNotification', 'getNotifications', []);
+    }
 
     /**
      * Listen for an event.

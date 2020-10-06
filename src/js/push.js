@@ -221,6 +221,25 @@ class PushNotification {
       [idNumber]);
   }
 
+  getNotifications (successCallback = () => {}, errorCallback = () => {}) {
+    if (typeof errorCallback !== 'function') {
+      console.log(
+        'PushNotification.getNotifications failure: failure parameter not a function'
+      );
+      return;
+    }
+
+    if (typeof successCallback !== 'function') {
+      console.log(
+        'PushNotification.getNotifications failure: success callback ' +
+            'parameter must be a function'
+      );
+      return;
+    }
+
+    exec(successCallback, errorCallback, 'PushNotification', 'getNotifications', []);
+  }
+
   /**
    * Listen for an event.
    *
