@@ -488,14 +488,74 @@
     }
 }
 
+- (NSMutableDictionary *)convertNotification:(NSDictionary *)notificationMessage isForeground:(BOOL)isForeground coldstart:(BOOL)coldstart {
+
+    NSMutableDictionary* message = [NSMutableDictionary dictionaryWithCapacity:4];
+    NSMutableDictionary* additionalData = [NSMutableDictionary dictionaryWithCapacity:4];
+
+    for (id key in notificationMessage) {
+        if ([key isEqualToString:@"aps"]) {
+            id aps = [notificationMessage objectForKey:@"aps"];
+
+            for(id key in aps) {
+                NSLog(@"[PushPlugin] key: %@", key);
+                id value = [aps objectForKey:key];
+
+                if ([key isEqualToString:@"alert"]) {
+                    if ([value isKindOfClass:[NSDictionary class]]) {
+                        for (id messageKey in value) {
+                            id messageValue = [value objectForKey:messageKey];
+                            if ([messageKey isEqualToString:@"body"]) {
+                                [message setObject:messageValue forKey:@"message"];
+                            } else if ([messageKey isEqualToString:@"title"]) {
+                                [message setObject:messageValue forKey:@"title"];
+                            } else {
+                                [additionalData setObject:messageValue forKey:messageKey];
+                            }
+                        }
+                    }
+                    else {
+                        [message setObject:value forKey:@"message"];
+                    }
+                } else if ([key isEqualToString:@"title"]) {
+                    [message setObject:value forKey:@"title"];
+                } else if ([key isEqualToString:@"badge"]) {
+                    [message setObject:value forKey:@"count"];
+                } else if ([key isEqualToString:@"sound"]) {
+                    [message setObject:value forKey:@"sound"];
+                } else if ([key isEqualToString:@"image"]) {
+                    [message setObject:value forKey:@"image"];
+                } else {
+                    [additionalData setObject:value forKey:key];
+                }
+            }
+        } else {
+            [additionalData setObject:[notificationMessage objectForKey:key] forKey:key];
+        }
+    }
+
+    if (isForeground) {
+        [additionalData setObject:[NSNumber numberWithBool:YES] forKey:@"foreground"];
+    } else {
+        [additionalData setObject:[NSNumber numberWithBool:NO] forKey:@"foreground"];
+    }
+
+    if (coldstart) {
+        [additionalData setObject:[NSNumber numberWithBool:YES] forKey:@"coldstart"];
+    } else {
+        [additionalData setObject:[NSNumber numberWithBool:NO] forKey:@"coldstart"];
+    }
+
+    [message setObject:additionalData forKey:@"additionalData"];
+
+    return message;
+}
 - (void)notificationReceived {
     NSLog(@"[PushPlugin] Notification received");
 
     if (self.notificationMessage && self.callbackId != nil)
     {
         NSMutableDictionary* mutableNotificationMessage = [self.notificationMessage mutableCopy];
-        NSMutableDictionary* message = [NSMutableDictionary dictionaryWithCapacity:4];
-        NSMutableDictionary* additionalData = [NSMutableDictionary dictionaryWithCapacity:4];
 
         // Exclude "UNNotificationDefaultActionIdentifier" from "actionCallback" as it is platform-specific.
         // Use the default "notification" callback or a custom-defined callback instead.
@@ -507,60 +567,7 @@
         [mutableNotificationMessage removeObjectForKey:@"applicationState"];
         self.notificationMessage = [mutableNotificationMessage copy];
 
-        for (id key in self.notificationMessage) {
-            if ([key isEqualToString:@"aps"]) {
-                id aps = [self.notificationMessage objectForKey:@"aps"];
-
-                for(id key in aps) {
-                    NSLog(@"[PushPlugin] key: %@", key);
-                    id value = [aps objectForKey:key];
-
-                    if ([key isEqualToString:@"alert"]) {
-                        if ([value isKindOfClass:[NSDictionary class]]) {
-                            for (id messageKey in value) {
-                                id messageValue = [value objectForKey:messageKey];
-                                if ([messageKey isEqualToString:@"body"]) {
-                                    [message setObject:messageValue forKey:@"message"];
-                                } else if ([messageKey isEqualToString:@"title"]) {
-                                    [message setObject:messageValue forKey:@"title"];
-                                } else {
-                                    [additionalData setObject:messageValue forKey:messageKey];
-                                }
-                            }
-                        }
-                        else {
-                            [message setObject:value forKey:@"message"];
-                        }
-                    } else if ([key isEqualToString:@"title"]) {
-                        [message setObject:value forKey:@"title"];
-                    } else if ([key isEqualToString:@"badge"]) {
-                        [message setObject:value forKey:@"count"];
-                    } else if ([key isEqualToString:@"sound"]) {
-                        [message setObject:value forKey:@"sound"];
-                    } else if ([key isEqualToString:@"image"]) {
-                        [message setObject:value forKey:@"image"];
-                    } else {
-                        [additionalData setObject:value forKey:key];
-                    }
-                }
-            } else {
-                [additionalData setObject:[self.notificationMessage objectForKey:key] forKey:key];
-            }
-        }
-
-        if (self.isForeground) {
-            [additionalData setObject:[NSNumber numberWithBool:YES] forKey:@"foreground"];
-        } else {
-            [additionalData setObject:[NSNumber numberWithBool:NO] forKey:@"foreground"];
-        }
-
-        if (self.coldstart) {
-            [additionalData setObject:[NSNumber numberWithBool:YES] forKey:@"coldstart"];
-        } else {
-            [additionalData setObject:[NSNumber numberWithBool:NO] forKey:@"coldstart"];
-        }
-
-        [message setObject:additionalData forKey:@"additionalData"];
+        NSMutableDictionary* message = [self convertNotification:self.notificationMessage isForeground:self.isForeground coldstart:self.coldstart];
 
         // send notification message
         CDVPluginResult* pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsDictionary:message];
@@ -594,7 +601,24 @@
     }];
 }
 
-- (void)setApplicationIconBadgeNumber:(CDVInvokedUrlCommand *)command {
+- (void)getNotifications:(CDVInvokedUrlCommand *)command
+{
+    [[UNUserNotificationCenter currentNotificationCenter] getDeliveredNotificationsWithCompletionHandler:^(NSArray<UNNotification *> * _Nonnull notifications) {
+        NSMutableArray *convertedNotifications = [NSMutableArray array];
+        for (UNNotification *notification in notifications) {
+             NSMutableDictionary* convertedNotification = [self convertNotification:notification.request.content.userInfo isForeground:NO coldstart:NO];
+            [convertedNotifications addObject:convertedNotification];
+        }
+
+        NSMutableDictionary* message = [NSMutableDictionary dictionaryWithCapacity:1];
+        [message setObject:convertedNotifications forKey:@"notifications"];
+        CDVPluginResult *commandResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsDictionary:message];
+        [self.commandDelegate sendPluginResult:commandResult callbackId:command.callbackId];
+    }];
+}
+
+- (void)setApplicationIconBadgeNumber:(CDVInvokedUrlCommand *)command
+{
     NSMutableDictionary* options = [command.arguments objectAtIndex:0];
     int badge = [[options objectForKey:@"badge"] intValue] ?: 0;
 
