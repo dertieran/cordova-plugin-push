@@ -358,10 +358,9 @@ class PushPlugin : CordovaPlugin() {
   private fun createDefaultNotificationChannelIfNeeded(options: JSONObject?) {
     // only call on Android O and above
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-      val channels = notificationManager.notificationChannels
-
-      for (i in channels.indices) {
-        if (PushConstants.DEFAULT_CHANNEL_ID == channels[i].id) {
+      // Check if the default channel already exist and if the name still matches the default name
+      for (channel in notificationManager.notificationChannels) {
+        if (PushConstants.DEFAULT_CHANNEL_ID == channel.id && appName == channel.name) {
           return
         }
       }
