@@ -18,7 +18,6 @@
 @property (nonatomic, readonly) BOOL forceShowEnabled;
 @property (nonatomic, readonly) BOOL voipEnabled;
 
-@property (nonatomic, readonly, strong) NSArray *fcmTopics;
 @property (nonatomic, readonly, strong) NSSet<UNNotificationCategory *> *categories;
 
 + (instancetype)sharedInstance;

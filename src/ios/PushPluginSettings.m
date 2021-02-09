@@ -35,7 +35,6 @@
             @"clearBadge" : @(NO),
             @"forceShow" : @(NO),
             @"voip" : @(NO),
-            @"fcmTopics" : @[],
             @"categories" : [NSSet set]
         } mutableCopy];
     }
@@ -46,9 +45,7 @@
     for (NSString *key in options) {
         if ([self.settingsDictionary objectForKey:key]) {
             // Overrides the default setting if defined and apply the correct formatting based on the key.
-            if ([key isEqualToString:@"fcmTopics"]) {
-                self.settingsDictionary[key] = [self parseArrayOption:key fromOptions:options withDefault:nil];
-            } else if ([key isEqualToString:@"categories"]) {
+            if ([key isEqualToString:@"categories"]) {
                 self.settingsDictionary[key] = [self parseCategoriesFromOptions:options[key]];
             } else {
                 self.settingsDictionary[key] = @([self parseOption:key fromOptions:options withDefault:NO]);
@@ -166,10 +163,6 @@
 
 - (BOOL)voipEnabled {
     return [self.settingsDictionary[@"voip"] boolValue];
-}
-
-- (NSArray *)fcmTopics {
-    return self.settingsDictionary[@"fcmTopics"];
 }
 
 - (NSSet<UNNotificationCategory *> *)categories {
