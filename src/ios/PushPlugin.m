@@ -326,7 +326,14 @@
 - (void)notificationReceived {
     NSLog(@"Notification received");
 
-    if (notificationMessage && self.callbackId != nil)
+    WKWebView *webView = (WKWebView *)self.webViewEngine.engineWebView;
+
+    // When the app resumes from the suspended state, the WebView reloads its content, triggering the init method to be called again.
+    // This causes a notification to be sent to an outdated callback ID.
+    // To address this, we don't handle the notification here when webview is loading, assuming loading is true because of the reload.
+    // later the notification will be handled when init method called again.
+
+    if (notificationMessage && self.callbackId != nil && !webView.loading)
     {
         NSMutableDictionary* message = [self convertNotification:notificationMessage];
 
