@@ -501,7 +501,18 @@
     return message;
 }
 - (void)notificationReceived {
+
     NSLog(@"[PushPlugin] Notification received");
+
+    // When the app resumes from the suspended state, the WebView reloads its content, triggering the init method to be called again.
+    // This causes a notification to be sent to an outdated callback ID.
+    // To address this, we don't handle the notification here when webview is loading, assuming loading is true because of the reload.
+    // Later the notification will be handled when init method called again.
+    WKWebView *webView = (WKWebView *)self.webViewEngine.engineWebView;
+    if(webView.loading) {
+      NSLog(@"[PushPlugin] Skip notification because webview is loading");
+      return;
+    }
 
     if (self.notificationMessage && self.callbackId != nil)
     {
