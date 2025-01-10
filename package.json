@@ -1,6 +1,6 @@
 {
   "name": "@zenkit-dev/cordova-plugin-push",
-  "version": "5.0.5-dev.2",
+  "version": "5.0.5-dev.4",
   "description": "Register and receive push notifications.",
   "repository": "https://github.com/dertieran/cordova-plugin-push.git",
   "scripts": {
