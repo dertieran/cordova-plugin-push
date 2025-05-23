@@ -511,6 +511,11 @@
     WKWebView *webView = (WKWebView *)self.webViewEngine.engineWebView;
     if(webView.loading) {
       NSLog(@"[PushPlugin] Skip notification because webview is loading");
+
+      // Set intialized back to false so notificationReceived is trigger.
+      // isInitialized was added to avoid trigger on app reload, but if we receive a notification while the app is loading this should be fine.
+      self.isInitialized = NO;
+
       return;
     }
 
